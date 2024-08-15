@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Canvas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        canvas {
+            border: 1px solid black;
+            display: block;
+            margin: 0 auto;
+        }
+        .selected {
+            border: 2px solid red;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <label for="shape">Selecciona una forma:</label>
+        <select id="shape">
+            <option value="rectangle">Rectángulo</option>
+            <option value="circle">Círculo</option>
+        </select>
+        <button id="rotate">Rotar Forma</button>
+        <button id="scale-up">Escalar Arriba</button>
+        <button id="scale-down">Escalar Abajo</button>
+        <button id="clear">Limpiar Canvas</button>
+    </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script>
+        // Obtener referencias a los elementos
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const shapeSelect = document.getElementById('shape');
+        const rotateButton = document.getElementById('rotate');
+        const scaleUpButton = document.getElementById('scale-up');
+        const scaleDownButton = document.getElementById('scale-down');
+        const clearButton = document.getElementById('clear');
+
+        let currentShape = 'rectangle';
+        let shapes = [];
+        let selectedShapeIndex = null;
+        let isDragging = false;
+
+        // Manejar la selección de formas
+        shapeSelect.addEventListener('change', (e) => {
+            currentShape = e.target.value;
+        });
+
+        // Manejar el clic en el canvas para dibujar formas
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const clickedShapeIndex = getSelectedShape(x, y);
+
+            if (clickedShapeIndex === null) {
+                let shape;
+                if (currentShape === 'rectangle') {
+                    shape = { type: 'rectangle', x, y, width: 100, height: 50, angle: 0 };
+                } else if (currentShape === 'circle') {
+                    shape = { type: 'circle', x, y, radius: 50, angle: 0 };
+                }
+                shapes.push(shape);
+                selectedShapeIndex = shapes.length - 1; // Selecciona la nueva figura
+            } else {
+                selectedShapeIndex = clickedShapeIndex; // Selecciona la figura existente
+            }
+
+            drawShapes();
+        });
+
+        // Función para dibujar todas las formas en el canvas
+        function drawShapes() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            shapes.forEach((shape, index) => {
+                ctx.save();
+                ctx.translate(shape.x, shape.y);
+                ctx.rotate(shape.angle * Math.PI / 180);
+                ctx.beginPath();
+                if (shape.type === 'rectangle') {
+                    ctx.rect(-shape.width / 2, -shape.height / 2, shape.width, shape.height);
+                } else if (shape.type === 'circle') {
+                    ctx.arc(0, 0, shape.radius, 0, Math.PI * 2);
+                }
+                ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
+                ctx.fill();
+                ctx.strokeStyle = 'black';
+                ctx.stroke();
+                if (index === selectedShapeIndex) {
+                    ctx.strokeStyle = 'red';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                }
+                ctx.restore();
+            });
+        }
+
+        // Detectar la figura seleccionada
+        function getSelectedShape(x, y) {
+            for (let i = shapes.length - 1; i >= 0; i--) {
+                const shape = shapes[i];
+                ctx.save();
+                ctx.translate(shape.x, shape.y);
+                ctx.rotate(shape.angle * Math.PI / 180);
+                ctx.beginPath();
+                if (shape.type === 'rectangle') {
+                    ctx.rect(-shape.width / 2, -shape.height / 2, shape.width, shape.height);
+                } else if (shape.type === 'circle') {
+                    ctx.arc(0, 0, shape.radius, 0, Math.PI * 2);
+                }
+                ctx.restore();
+                if (ctx.isPointInPath(x, y)) {
+                    return i;
+                }
+            }
+            return null;
+        }
+
+        // Iniciar el arrastre de la figura
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            selectedShapeIndex = getSelectedShape(x, y);
+            if (selectedShapeIndex !== null) {
+                isDragging = true;
+            }
+        });
+
+        // Mover la figura seleccionada
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging && selectedShapeIndex !== null) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const shape = shapes[selectedShapeIndex];
+                shape.x = x;
+                shape.y = y;
+                drawShapes();
+            }
+        });
+
+        // Terminar el arrastre de la figura
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Manejar el botón de rotar
+        rotateButton.addEventListener('click', () => {
+            if (selectedShapeIndex !== null) {
+                let shape = shapes[selectedShapeIndex];
+                shape.angle = (shape.angle + 15) % 360; // Rotar 15 grados cada vez
+                drawShapes();
+            }
+        });
+
+        // Manejar el botón de escalar arriba
+        scaleUpButton.addEventListener('click', () => {
+            if (selectedShapeIndex !== null) {
+                let shape = shapes[selectedShapeIndex];
+                if (shape.type === 'rectangle') {
+                    shape.width *= 1.1;
+                    shape.height *= 1.1;
+                } else if (shape.type === 'circle') {
+                    shape.radius *= 1.1;
+                }
+                drawShapes();
+            }
+        });
+
+        // Manejar el botón de escalar abajo
+        scaleDownButton.addEventListener('click', () => {
+            if (selectedShapeIndex !== null) {
+                let shape = shapes[selectedShapeIndex];
+                if (shape.type === 'rectangle') {
+                    shape.width *= 0.9;
+                    shape.height *= 0.9;
+                } else if (shape.type === 'circle') {
+                    shape.radius *= 0.9;
+                }
+                drawShapes();
+            }
+        });
+
+        // Manejar el botón de limpiar
+        clearButton.addEventListener('click', () => {
+            shapes = [];
+            selectedShapeIndex = null;
+            drawShapes();
+        });
+    </script>
+</body>
+</html>
